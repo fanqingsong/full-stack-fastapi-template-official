@@ -94,6 +94,15 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
+    # MinIO Configuration
+    MINIO_ROOT_USER: str = "minioadmin"
+    MINIO_ROOT_PASSWORD: str = "minioadmin123"
+    MINIO_ENDPOINT: str = "minio:9000"
+    MINIO_EXTERNAL_ENDPOINT: str = "localhost:9000"
+    MINIO_SECURE: bool = False
+    MINIO_BUCKET_NAME: str = "app-files"
+    MINIO_REGION: str = "us-east-1"
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (

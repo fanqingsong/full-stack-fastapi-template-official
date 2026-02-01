@@ -40,6 +40,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --package app
 
+# Install minio package (newly added dependency) to venv
+RUN uv pip install "minio>=7.2.0" --target /app/.venv/lib/python3.10/site-packages
+
 WORKDIR /app/backend/
 
 CMD ["fastapi", "run", "--workers", "4", "app/main.py"]

@@ -54,6 +54,7 @@ class User(UserBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+    files: list["File"] = Relationship(back_populates="owner", cascade_delete=True)
 
 
 # Properties to return via API, id is always required
@@ -127,3 +128,46 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+# Shared properties
+class FileBase(SQLModel):
+    filename: str = Field(max_length=255)
+    original_filename: str = Field(max_length=255)
+    content_type: str = Field(max_length=100)
+    file_size: int
+
+
+class FileCreate(SQLModel):
+    filename: str = Field(max_length=255)
+    original_filename: str = Field(max_length=255)
+    content_type: str = Field(max_length=100)
+    file_size: int
+
+
+class FileUpdate(SQLModel):
+    filename: str | None = Field(default=None, max_length=255)
+
+
+# Database model
+class File(FileBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE"
+    )
+    owner: User | None = Relationship(back_populates="files")
+
+
+class FilePublic(FileBase):
+    id: uuid.UUID
+    owner_id: uuid.UUID
+    created_at: datetime | None = None
+
+
+class FilesPublic(SQLModel):
+    data: list[FilePublic]
+    count: int

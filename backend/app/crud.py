@@ -4,7 +4,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
-from app.models import Item, ItemCreate, User, UserCreate, UserUpdate
+from app.models import File, FileCreate, Item, ItemCreate, User, UserCreate, UserUpdate
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
@@ -66,3 +66,35 @@ def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -
     session.commit()
     session.refresh(db_item)
     return db_item
+
+
+def create_file(*, session: Session, file_in: FileCreate, owner_id: uuid.UUID) -> File:
+    db_file = File.model_validate(file_in, update={"owner_id": owner_id})
+    session.add(db_file)
+    session.commit()
+    session.refresh(db_file)
+    return db_file
+
+
+def get_file_by_id(*, session: Session, file_id: uuid.UUID) -> File | None:
+    statement = select(File).where(File.id == file_id)
+    session_file = session.exec(statement).first()
+    return session_file
+
+
+def get_files_by_owner(
+    *, session: Session, owner_id: uuid.UUID, skip: int = 0, limit: int = 100
+) -> list[File]:
+    statement = select(File).where(File.owner_id == owner_id).offset(skip).limit(limit)
+    return list(session.exec(statement).all())
+
+
+def get_files_count_by_owner(*, session: Session, owner_id: uuid.UUID) -> int:
+    statement = select(File).where(File.owner_id == owner_id)
+    return len(session.exec(statement).all())
+
+
+def delete_file(*, session: Session, db_file: File) -> File:
+    session.delete(db_file)
+    session.commit()
+    return db_file
