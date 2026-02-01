@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 开发环境停止脚本
-# 用法: ./bin/stop-dev.sh [--clean] [--with-airflow]
+# 用法: ./bin/stop-dev.sh [--clean]
 
 set -e
 
@@ -14,15 +14,11 @@ ENV_FILE=".env.dev"
 COMPOSE_FILE="compose.dev.yml"
 ENV_NAME="开发环境"
 CLEAN_VOLUMES=false
-WITH_AIRFLOW=false
 
 # 检查参数
 for arg in "$@"; do
     if [[ "$arg" == "--clean" ]] || [[ "$arg" == "-c" ]]; then
         CLEAN_VOLUMES=true
-    fi
-    if [[ "$arg" == "--with-airflow" ]] || [[ "$arg" == "-a" ]]; then
-        WITH_AIRFLOW=true
     fi
 done
 
@@ -33,14 +29,9 @@ if [ -f "$ENV_FILE" ]; then
     export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
 fi
 
-# 构建 compose 文件列表（包含 Kong）
-COMPOSE_FILES="-f compose.yml -f compose.kong.yml -f $COMPOSE_FILE"
-
-# 添加 Airflow 支持
-if [ "$WITH_AIRFLOW" = "true" ]; then
-    COMPOSE_FILES="$COMPOSE_FILES -f compose.airflow.yml"
-    echo "✅ 包含 Airflow 服务"
-fi
+# 构建 compose 文件列表（包含 Kong 和 Airflow）
+COMPOSE_FILES="-f compose.yml -f compose.kong.yml -f compose.airflow.yml -f $COMPOSE_FILE"
+echo "✅ 包含 Airflow 服务"
 
 # 停止服务
 echo "停止服务..."

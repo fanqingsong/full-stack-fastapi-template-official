@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 开发环境启动脚本
-# 用法: ./bin/start-dev.sh [--with-airflow]
+# 用法: ./bin/start-dev.sh
 
 set -e
 
@@ -13,12 +13,6 @@ cd "$PROJECT_DIR"
 ENV_FILE=".env.dev"
 COMPOSE_FILE="compose.dev.yml"
 ENV_NAME="开发环境"
-WITH_AIRFLOW=false
-
-# 检查参数
-if [[ "$1" == "--with-airflow" ]] || [[ "$1" == "-a" ]]; then
-    WITH_AIRFLOW=true
-fi
 
 echo "🚀 启动${ENV_NAME}..."
 echo "📁 项目目录: $PROJECT_DIR"
@@ -32,14 +26,9 @@ fi
 # 加载环境变量
 export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
 
-# 构建 compose 文件列表（包含 Kong）
-COMPOSE_FILES="-f compose.yml -f compose.kong.yml -f $COMPOSE_FILE"
-
-# 添加 Airflow 支持
-if [ "$WITH_AIRFLOW" = "true" ]; then
-    COMPOSE_FILES="$COMPOSE_FILES -f compose.airflow.yml"
-    echo "✅ 已启用 Airflow 工作流调度服务"
-fi
+# 构建 compose 文件列表（包含 Kong 和 Airflow）
+COMPOSE_FILES="-f compose.yml -f compose.kong.yml -f compose.airflow.yml -f $COMPOSE_FILE"
+echo "✅ 已启用 Airflow 工作流调度服务"
 
 # 先停止现有服务（如果存在）
 echo "检查并停止现有服务..."
@@ -60,12 +49,11 @@ echo "启动${ENV_NAME}服务..."
 echo "ℹ️  开发环境特性:"
 echo "   - Kong API Gateway 网关"
 echo "   - 前后端热加载已启用"
+echo "   - Airflow 工作流调度已启用"
 echo "   - 端口已暴露: backend(8000), frontend(5173), adminer(8080), mailcatcher(1080)"
 echo "   - Kong (8000), Kong Admin API (8001), Konga UI (1337)"
+echo "   - Airflow (9090), Flower (5555)"
 echo "   - Cypress E2E 测试服务可用 (使用 --profile test 启动)"
-if [ "$WITH_AIRFLOW" = "true" ]; then
-    echo "   - Airflow 工作流调度已启用 (9090, 5555)"
-fi
 
 docker compose $COMPOSE_FILES up -d --build
 
@@ -126,19 +114,12 @@ echo ""
 echo "  📌 管理界面:"
 echo "    - Kong Admin API: http://localhost:8001"
 echo "    - Konga UI: http://localhost:1337"
-if [ "$WITH_AIRFLOW" = "true" ]; then
-    echo "    - Airflow Web UI: http://localhost:9090 (airflow/airflow)"
-    echo "    - Flower UI: http://localhost:5555"
-fi
+echo "    - Airflow Web UI: http://localhost:9090 (airflow/airflow)"
+echo "    - Flower UI: http://localhost:5555"
 echo ""
 echo "🧪 运行 E2E 测试:"
 echo "  docker compose $COMPOSE_FILES --profile test up cypress"
 echo ""
 echo "📝 查看日志: docker compose $COMPOSE_FILES logs -f"
-if [ "$WITH_AIRFLOW" = "true" ]; then
-    echo "🛑 停止服务: ./bin/stop-dev.sh --with-airflow"
-else
-    echo "🛑 停止服务: ./bin/stop-dev.sh"
-    echo "💡 启动 Airflow: ./bin/start-dev.sh --with-airflow"
-fi
+echo "🛑 停止服务: ./bin/stop-dev.sh"
 echo ""
