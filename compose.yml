@@ -66,6 +66,10 @@ services:
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
+      # Redis Configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changethis}
 
   backend:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
@@ -99,6 +103,10 @@ services:
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - SENTRY_DSN=${SENTRY_DSN}
+      # Redis Configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changethis}
       # MinIO Configuration
       - MINIO_ENDPOINT=minio:9000
       - MINIO_EXTERNAL_ENDPOINT=localhost:9000
@@ -110,6 +118,10 @@ services:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=${QDRANT_PORT:-6333}
       - QDRANT_API_KEY=${QDRANT_API_KEY:-}
+      # Redis Configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changethis}
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
@@ -181,10 +193,44 @@ services:
       retries: 5
       start_period: 30s
 
+  # Redis - In-memory data store
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changethis} --appendonly yes
+    volumes:
+      - redis-data:/data
+    expose:
+      - 6379
+    networks:
+      - default
+      - kong-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changethis}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Commander - Web-based Redis management tool
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    restart: always
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0
+      - REDIS_PASSWORD_0=${REDIS_PASSWORD:-changethis}
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-admin}
+    networks:
+      - kong-network
+      - default
+
 volumes:
   app-db-data:
   minio-data:
   qdrant-data:
+  redis-data:
 
 networks:
   kong-network:

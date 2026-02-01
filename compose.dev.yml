@@ -62,6 +62,16 @@ services:
       - "1080:1080"
       - "1025:1025"
 
+  redis:
+    restart: "no"
+    ports:
+      - "6379:6379"
+
+  redis-commander:
+    restart: "no"
+    ports:
+      - "8081:8081"
+
   frontend:
     restart: "no"
     ports:
