@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 多环境停止脚本
-# 用法: ./bin/stop.sh [dev|staging|prod] [--clean]
+# 用法: ./bin/stop.sh [dev|staging|prod] [--clean] [--with-airflow]
 # 默认: dev
 
 set -e
@@ -14,13 +14,21 @@ cd "$PROJECT_DIR"
 # 解析参数
 ENVIRONMENT=${1:-dev}
 CLEAN_VOLUMES=false
+WITH_AIRFLOW=false
 
-# 检查第二个参数是否是 --clean
-if [[ "$ENVIRONMENT" == "--clean" ]] || [[ "$ENVIRONMENT" == "-c" ]]; then
+# 检查参数
+for arg in "$@"; do
+    if [[ "$arg" == "--clean" ]] || [[ "$arg" == "-c" ]]; then
+        CLEAN_VOLUMES=true
+    fi
+    if [[ "$arg" == "--with-airflow" ]] || [[ "$arg" == "-a" ]]; then
+        WITH_AIRFLOW=true
+    fi
+done
+
+# 处理第一个参数是 --with-airflow 的情况
+if [[ "$ENVIRONMENT" == "--with-airflow" ]] || [[ "$ENVIRONMENT" == "-a" ]]; then
     ENVIRONMENT="dev"
-    CLEAN_VOLUMES=true
-elif [[ "$2" == "--clean" ]] || [[ "$2" == "-c" ]]; then
-    CLEAN_VOLUMES=true
 fi
 
 # 验证环境参数
@@ -28,13 +36,15 @@ if [[ ! "$ENVIRONMENT" =~ ^(dev|staging|prod)$ ]]; then
     echo "❌ 错误: 无效的环境 '$ENVIRONMENT'"
     echo ""
     echo "用法:"
-    echo "  ./bin/stop.sh [dev|staging|prod] [--clean]"
+    echo "  ./bin/stop.sh [dev|staging|prod] [--clean] [--with-airflow]"
     echo ""
     echo "示例:"
-    echo "  ./bin/stop.sh dev           # 停止开发环境（默认）"
-    echo "  ./bin/stop.sh staging       # 停止预发布环境"
-    echo "  ./bin/stop.sh prod          # 停止生产环境"
-    echo "  ./bin/stop.sh dev --clean   # 停止并清理数据卷"
+    echo "  ./bin/stop.sh dev                     # 停止开发环境（默认）"
+    echo "  ./bin/stop.sh staging                 # 停止预发布环境"
+    echo "  ./bin/stop.sh prod                    # 停止生产环境"
+    echo "  ./bin/stop.sh dev --clean             # 停止并清理数据卷"
+    echo "  ./bin/stop.sh dev --with-airflow      # 停止包含 Airflow"
+    echo "  ./bin/stop.sh dev --clean --with-airflow  # 全部"
     exit 1
 fi
 
@@ -66,6 +76,12 @@ fi
 
 # 构建 compose 文件列表（包含 Kong）
 COMPOSE_FILES="-f compose.yml -f compose.kong.yml -f $COMPOSE_FILE"
+
+# 添加 Airflow 支持
+if [ "$WITH_AIRFLOW" = "true" ]; then
+    COMPOSE_FILES="$COMPOSE_FILES -f compose.airflow.yml"
+    echo "✅ 包含 Airflow 服务"
+fi
 
 # 停止服务
 echo "停止服务..."

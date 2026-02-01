@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 多环境启动脚本
-# 用法: ./bin/start.sh [dev|staging|prod]
+# 用法: ./bin/start.sh [dev|staging|prod] [--with-airflow]
 # 默认: dev
 
 set -e
@@ -13,18 +13,28 @@ cd "$PROJECT_DIR"
 
 # 解析参数
 ENVIRONMENT=${1:-dev}
+WITH_AIRFLOW=false
+
+# 检查是否启用 Airflow
+if [[ "$2" == "--with-airflow" ]] || [[ "$2" == "-a" ]]; then
+    WITH_AIRFLOW=true
+elif [[ "$1" == "--with-airflow" ]] || [[ "$1" == "-a" ]]; then
+    WITH_AIRFLOW=true
+    ENVIRONMENT="dev"
+fi
 
 # 验证环境参数
 if [[ ! "$ENVIRONMENT" =~ ^(dev|staging|prod)$ ]]; then
     echo "❌ 错误: 无效的环境 '$ENVIRONMENT'"
     echo ""
     echo "用法:"
-    echo "  ./bin/start.sh [dev|staging|prod]"
+    echo "  ./bin/start.sh [dev|staging|prod] [--with-airflow]"
     echo ""
     echo "示例:"
-    echo "  ./bin/start.sh dev       # 开发环境（默认，支持热加载）"
-    echo "  ./bin/start.sh staging   # 预发布环境"
-    echo "  ./bin/start.sh prod      # 生产环境"
+    echo "  ./bin/start.sh dev                # 开发环境（默认，支持热加载）"
+    echo "  ./bin/start.sh staging            # 预发布环境"
+    echo "  ./bin/start.sh prod               # 生产环境"
+    echo "  ./bin/start.sh dev --with-airflow # 开发环境 + Airflow"
     exit 1
 fi
 
@@ -62,6 +72,12 @@ export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
 # 构建 compose 文件列表（包含 Kong）
 COMPOSE_FILES="-f compose.yml -f compose.kong.yml -f $COMPOSE_FILE"
 
+# 添加 Airflow 支持
+if [ "$WITH_AIRFLOW" = "true" ]; then
+    COMPOSE_FILES="$COMPOSE_FILES -f compose.airflow.yml"
+    echo "✅ 已启用 Airflow 工作流调度服务"
+fi
+
 # 先停止现有服务（如果存在）
 echo "检查并停止现有服务..."
 if docker compose $COMPOSE_FILES ps -q 2>/dev/null | grep -q .; then
@@ -86,6 +102,9 @@ if [ "$ENVIRONMENT" = "dev" ]; then
     echo "   - 端口已暴露: backend(8000), frontend(5173), adminer(8080), mailcatcher(1080)"
     echo "   - Kong (8000), Kong Admin API (8001), Konga UI (1337)"
     echo "   - Cypress E2E 测试服务可用 (使用 --profile test 启动)"
+    if [ "$WITH_AIRFLOW" = "true" ]; then
+        echo "   - Airflow 工作流调度已启用 (9090, 5555)"
+    fi
 fi
 
 docker compose $COMPOSE_FILES up -d --build
@@ -148,6 +167,10 @@ if [ "$ENVIRONMENT" = "dev" ]; then
     echo "  📌 管理界面:"
     echo "    - Kong Admin API: http://localhost:8001"
     echo "    - Konga UI: http://localhost:1337"
+    if [ "$WITH_AIRFLOW" = "true" ]; then
+        echo "    - Airflow Web UI: http://localhost:9090 (airflow/airflow)"
+        echo "    - Flower UI: http://localhost:5555"
+    fi
     echo ""
     echo "🧪 运行 E2E 测试:"
     echo "  docker compose $COMPOSE_FILES --profile test up cypress"
@@ -161,14 +184,26 @@ elif [ "$ENVIRONMENT" = "staging" ]; then
     echo "  📌 管理界面:"
     echo "    - Kong Admin API: http://localhost:8001 (内部访问)"
     echo "    - Konga UI: http://localhost:1337 (内部访问)"
+    if [ "$WITH_AIRFLOW" = "true" ]; then
+        echo "    - Airflow Web UI: http://localhost:9090 (内部访问)"
+        echo "    - Flower UI: http://localhost:5555 (内部访问)"
+    fi
     echo ""
 else
     echo "🌐 访问地址:"
     echo "  - Frontend: https://dashboard.${DOMAIN}"
     echo "  - Backend API: https://api.${DOMAIN}"
+    if [ "$WITH_AIRFLOW" = "true" ]; then
+        echo "  - Airflow Web UI: http://localhost:9090 (内部访问)"
+        echo "  - Flower UI: http://localhost:5555 (内部访问)"
+    fi
     echo ""
 fi
 
 echo "📝 查看日志: docker compose $COMPOSE_FILES logs -f"
-echo "🛑 停止服务: ./bin/stop.sh $ENVIRONMENT"
+if [ "$WITH_AIRFLOW" = "true" ]; then
+    echo "🛑 停止服务: ./bin/stop.sh $ENVIRONMENT --with-airflow"
+else
+    echo "🛑 停止服务: ./bin/stop.sh $ENVIRONMENT"
+fi
 echo ""

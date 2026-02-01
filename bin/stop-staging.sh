@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 预发布环境停止脚本
-# 用法: ./bin/stop-staging.sh [--clean]
+# 用法: ./bin/stop-staging.sh [--clean] [--with-airflow]
 
 set -e
 
@@ -14,11 +14,17 @@ ENV_FILE=".env.staging"
 COMPOSE_FILE="compose.staging.yml"
 ENV_NAME="预发布环境"
 CLEAN_VOLUMES=false
+WITH_AIRFLOW=false
 
-# 检查参数是否是 --clean
-if [[ "$1" == "--clean" ]] || [[ "$1" == "-c" ]]; then
-    CLEAN_VOLUMES=true
-fi
+# 检查参数
+for arg in "$@"; do
+    if [[ "$arg" == "--clean" ]] || [[ "$arg" == "-c" ]]; then
+        CLEAN_VOLUMES=true
+    fi
+    if [[ "$arg" == "--with-airflow" ]] || [[ "$arg" == "-a" ]]; then
+        WITH_AIRFLOW=true
+    fi
+done
 
 echo "🛑 停止${ENV_NAME}服务..."
 
@@ -29,6 +35,12 @@ fi
 
 # 构建 compose 文件列表（包含 Kong）
 COMPOSE_FILES="-f compose.yml -f compose.kong.yml -f $COMPOSE_FILE"
+
+# 添加 Airflow 支持
+if [ "$WITH_AIRFLOW" = "true" ]; then
+    COMPOSE_FILES="$COMPOSE_FILES -f compose.airflow.yml"
+    echo "✅ 包含 Airflow 服务"
+fi
 
 # 停止服务
 echo "停止服务..."

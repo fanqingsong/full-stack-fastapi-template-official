@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 生产环境启动脚本
-# 用法: ./bin/start-prod.sh
+# 用法: ./bin/start-prod.sh [--with-airflow]
 
 set -e
 
@@ -13,6 +13,12 @@ cd "$PROJECT_DIR"
 ENV_FILE=".env.prod"
 COMPOSE_FILE="compose.prod.yml"
 ENV_NAME="生产环境"
+WITH_AIRFLOW=false
+
+# 检查参数
+if [[ "$1" == "--with-airflow" ]] || [[ "$1" == "-a" ]]; then
+    WITH_AIRFLOW=true
+fi
 
 echo "🚀 启动${ENV_NAME}..."
 echo "📁 项目目录: $PROJECT_DIR"
@@ -28,6 +34,12 @@ export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
 
 # 构建 compose 文件列表（包含 Kong）
 COMPOSE_FILES="-f compose.yml -f compose.kong.yml -f $COMPOSE_FILE"
+
+# 添加 Airflow 支持
+if [ "$WITH_AIRFLOW" = "true" ]; then
+    COMPOSE_FILES="$COMPOSE_FILES -f compose.airflow.yml"
+    echo "✅ 已启用 Airflow 工作流调度服务"
+fi
 
 # 先停止现有服务（如果存在）
 echo "检查并停止现有服务..."
@@ -94,7 +106,15 @@ echo ""
 echo "🌐 访问地址:"
 echo "  - Frontend: https://dashboard.${DOMAIN}"
 echo "  - Backend API: https://api.${DOMAIN}"
+if [ "$WITH_AIRFLOW" = "true" ]; then
+    echo "  - Airflow Web UI: http://localhost:9090 (内部访问)"
+    echo "  - Flower UI: http://localhost:5555 (内部访问)"
+fi
 echo ""
 echo "📝 查看日志: docker compose $COMPOSE_FILES logs -f"
-echo "🛑 停止服务: ./bin/stop-prod.sh"
+if [ "$WITH_AIRFLOW" = "true" ]; then
+    echo "🛑 停止服务: ./bin/stop-prod.sh --with-airflow"
+else
+    echo "🛑 停止服务: ./bin/stop-prod.sh"
+fi
 echo ""
